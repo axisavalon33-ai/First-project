@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>Vertigo vs Dizziness VR</title>
+<style>
+  /* ============================================================
+     LOOK & FEEL — you can change colours here if you like.
+     ============================================================ */
+  :root {
+    --accent: #4fd1c5;
+    --vertigo: #f6ad55;
+    --dizzy: #90cdf4;
+    --text: #f7fafc;
+    --muted: #a0aec0;
+    --panel: rgba(10, 14, 24, 0.88);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    background: #000; color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---------- Start menu ---------- */
+  #menu {
+    position: fixed; inset: 0; overflow-y: auto;
+    padding: 24px 16px 40px;
+    background: radial-gradient(circle at 30% 10%, #1a2a44 0%, #05070d 70%);
+    display: flex; flex-direction: column; align-items: center;
+  }
+  #menu .wrap { max-width: 640px; width: 100%; }
+  #menu h1 { font-size: clamp(26px, 6vw, 40px); line-height: 1.1; margin-bottom: 8px; }
+  #menu h1 .v { color: var(--vertigo); }
+  #menu h1 .d { color: var(--dizzy); }
+  #menu p.lead { color: var(--muted); margin-bottom: 20px; font-size: 16px; line-height: 1.5; }
+  .warning {
+    border: 1px solid #e53e3e; background: rgba(229, 62, 62, 0.12);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 20px; font-size: 14px; line-height: 1.5;
+  }
+  .warning strong { color: #fc8181; }
+  .mode { display: grid; gap: 10px; margin-bottom: 20px; }
+  .mode label {
+    display: flex; gap: 12px; align-items: flex-start; padding: 14px;
+    border: 1px solid #2d3748; border-radius: 12px; cursor: pointer; background: rgba(255,255,255,0.03);
+  }
+  .mode input { margin-top: 4px; transform: scale(1.3); }
+  .mode small { display: block; color: var(--muted); margin-top: 2px; }
+  button.big {
+    width: 100%; padding: 18px; font-size: 20px; font-weight: 700; border: 0; border-radius: 14px;
+    background: var(--accent); color: #04121a; cursor: pointer;
+  }
+  button.big:active { transform: scale(0.98); }
+  .fine { color: var(--muted); font-size: 13px; margin-top: 14px; line-height: 1.5; text-align: center; }
+
+  /* ---------- VR stage ---------- */
+  #stage { position: fixed; inset: 0; display: none; background: #000; }
+  #stage.on { display: flex; }
+  .eye { position: relative; flex: 1; height: 100%; overflow: hidden; background: #000; }
+  #stage.split .eye + .eye { border-left: 2px solid #000; }
+  #stage.single .eye + .eye { display: none; }
+
+  .scene {
+    position: absolute; inset: -30%;          /* oversized so rotation never shows edges */
+    will-change: transform, filter;
+  }
+  .scene video, .scene .fallback {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  }
+  /* Used only if the camera is not available: a simple "room" pattern */
+  .fallback {
+    display: none;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.12) 0 2px, transparent 2px 80px),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.12) 0 2px, transparent 2px 80px),
+      linear-gradient(180deg, #2b4c7e 0%, #567ebb 45%, #6b4f3a 55%, #3e2c20 100%);
+  }
+  .no-camera .scene video { display: none; }
+  .no-camera .fallback { display: block; }
+
+  /* darkening "tunnel" around the edge of vision */
+  .vignette {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 35%, #000 80%);
+    opacity: 0.25;
+  }
+  /* whole-view fade used for "greying out" */
+  .fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+
+  .caption {
+    position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%);
+    width: 78%; text-align: center; padding: 10px 12px; border-radius: 12px;
+    background: rgba(0,0,0,0.6); font-size: clamp(12px, 2.4vw, 22px); line-height: 1.3;
+    transition: opacity 0.6s;
+  }
+  .caption b { display: block; font-size: 1.25em; letter-spacing: 0.04em; }
+  .caption .t { color: var(--muted); font-size: 0.8em; margin-top: 4px; }
+  .timer {
+    position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
+    font-size: clamp(11px, 2vw, 18px); color: var(--muted); background: rgba(0,0,0,0.5);
+    padding: 4px 10px; border-radius: 20px;
+  }
+
+  /* explanation slides inside the headset */
+  .info {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 40%, #13213a 0%, #02040a 75%);
+    padding: 12% 12%;
+  }
+  .info.on { display: flex; }
+  .info .card { width: 100%; max-width: 560px; }
+  .info h2 { font-size: clamp(15px, 3.2vw, 30px); margin-bottom: 0.5em; }
+  .info ul { list-style: none; }
+  .info li {
+    font-size: clamp(11px, 2.1vw, 19px); line-height: 1.35; margin-bottom: 0.45em;
+    padding-left: 1.1em; position: relative;
+  }
+  .info li::before { content: "•"; position: absolute; left: 0; color: var(--accent); }
+  .info .progress { height: 4px; background: #2d3748; border-radius: 2px; margin-top: 1em; overflow: hidden; }
+  .info .progress div { height: 100%; width: 0; background: var(--accent); }
+
+  /* ---------- Final readable summary (outside headset) ---------- */
+  #summary {
+    position: fixed; inset: 0; display: none; overflow-y: auto; padding: 24px 16px 40px;
+    background: #05070d;
+  }
+  #summary.on { display: block; }
+  #summary .wrap { max-width: 720px; margin: 0 auto; }
+  #summary h1 { font-size: 28px; margin-bottom: 6px; }
+  #summary .sub { color: var(--muted); margin-bottom: 20px; }
+  .cols { display: grid; gap: 14px; grid-template-columns: 1fr; margin-bottom: 14px; }
+  @media (min-width: 640px) { .cols { grid-template-columns: 1fr 1fr; } }
+  .box { border-radius: 14px; padding: 16px; background: #0f1626; border-top: 4px solid var(--accent); }
+  .box.v { border-top-color: var(--vertigo); }
+  .box.d { border-top-color: var(--dizzy); }
+  .box.e { border-top-color: #fc8181; }
+  .box h2 { font-size: 20px; margin-bottom: 8px; }
+  .box ul { padding-left: 18px; }
+  .box li { margin-bottom: 6px; line-height: 1.45; }
+  .box p { line-height: 1.5; margin-bottom: 8px; }
+  .row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .row button {
+    flex: 1; min-width: 160px; padding: 14px; font-size: 17px; font-weight: 600; border-radius: 12px;
+    border: 1px solid #2d3748; background: #1a2333; color: var(--text); cursor: pointer;
+  }
+  .row button.primary { background: var(--accent); color: #04121a; border: 0; }
+</style>
+</head>
+<body>
+
+<!-- ======================= START MENU ======================= -->
+<section id="menu">
+  <div class="wrap">
+    <h1><span class="v">Vertigo</span> vs <span class="d">Dizziness</span></h1>
+    <p class="lead">A 45-second VR experience. You'll see the room around you through the phone camera — first as it feels to be <b>dizzy</b>, then as it feels to have <b>vertigo</b>. Afterwards you'll learn the difference and what to do.</p>
+
+    <div class="warning">
+      <strong>⚠ Before you start</strong><br>
+      Please stay <b>seated</b>. Not suitable for people with epilepsy, migraine, motion sickness, heart conditions, or who are pregnant. Take the headset off at any time if you feel unwell — <b>tap the screen to stop</b>.
+    </div>
+
+    <div class="mode">
+      <label>
+        <input type="radio" name="mode" value="split" checked>
+        <span><b>Headset mode</b> (split screen)
+          <small>For a phone placed in a VR viewer such as Google Cardboard.</small></span>
+      </label>
+      <label>
+        <input type="radio" name="mode" value="single">
+        <span><b>Screen mode</b> (single view)
+          <small>For testing on a laptop, tablet or phone without a headset.</small></span>
+      </label>
+    </div>
+
+    <button class="big" id="startBtn">▶ Start experience</button>
+    <p class="fine">The browser will ask to use your camera — tap <b>Allow</b>. Nothing is recorded or uploaded; the video stays on this device.</p>
+  </div>
+</section>
+
+<!-- ======================= VR STAGE ======================= -->
+<section id="stage">
+  <!-- The left eye. The right eye is a copy made by the script. -->
+  <div class="eye" id="eyeL">
+    <div class="scene">
+      <video playsinline muted autoplay></video>
+      <div class="fallback"></div>
+    </div>
+    <div class="vignette"></div>
+    <div class="fade"></div>
+    <div class="timer"></div>
+    <div class="caption"></div>
+    <div class="info"><div class="card"></div></div>
+  </div>
+</section>
+
+<!-- ======================= FINAL SUMMARY ======================= -->
+<section id="summary">
+  <div class="wrap">
+    <h1>You can take off the headset now</h1>
+    <p class="sub">Here's what you just experienced.</p>
+
+    <div class="cols">
+      <div class="box d">
+        <h2>😵 Dizziness</h2>
+        <p>A general, vague feeling of being <b>lightheaded, faint, woozy or unsteady</b>. The world does <i>not</i> spin.</p>
+        <ul>
+          <li>Common causes: standing up too fast, dehydration, low blood sugar, low blood pressure, anaemia, heat, anxiety, some medicines.</li>
+          <li>The brain is briefly not getting enough blood, oxygen or sugar — vision may blur, fade or "grey out".</li>
+        </ul>
+      </div>
+      <div class="box v">
+        <h2>🌀 Vertigo</h2>
+        <p>A false feeling that <b>you or the world is spinning or moving</b> when nothing is.</p>
+        <ul>
+          <li>Usually caused by the <b>inner ear (vestibular system)</b>, e.g. BPPV (loose crystals), vestibular neuritis, Ménière's disease.</li>
+          <li>Sometimes from the <b>brain</b> (brainstem / cerebellum), e.g. vestibular migraine or stroke.</li>
+          <li>The eyes may twitch side-to-side — called <b>nystagmus</b>. You saw this as the jerky movement.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>✅ What to do next</h2>
+      <ul>
+        <li><b>Sit or lie down</b> straight away so you don't fall.</li>
+        <li>Keep still, focus on one fixed point, and avoid sudden head movements or bright screens.</li>
+        <li>If dizzy: drink water, have a snack if you haven't eaten, and stand up slowly.</li>
+        <li>Don't drive, climb ladders or use machinery until it has passed.</li>
+        <li>See a doctor if it keeps coming back, lasts a long time, or affects daily life — vertigo often has very effective treatments (e.g. simple head-position manoeuvres for BPPV).</li>
+      </ul>
+    </div>
+    <div class="box e" style="margin-top:14px">
+      <h2>🚨 Call emergency services if…</h2>
+      <p>dizziness or vertigo comes with: sudden severe headache, slurred speech, face drooping, weakness or numbness, double vision, trouble walking, chest pain, a racing heartbeat, fainting, or sudden hearing loss. These can be signs of a <b>stroke</b> or heart problem.</p>
+    </div>
+
+    <div class="row">
+      <button class="primary" id="againBtn">↻ Next visitor — start again</button>
+      <button id="menuBtn">Back to menu</button>
+    </div>
+    <p class="fine">For education only — this is not medical advice.</p>
+  </div>
+</section>
+
+<script>
+/* =================================================================
+   SETTINGS — the easiest things to change are all in this box.
+   Times are in seconds.
+   ================================================================= */
+const SETTINGS = {
+  normal:    4,    // calm "this is normal vision" moment
+  dizzy:    20,    // dizziness simulation
+  pause:     1,    // short break between the two
+  vertigo:  20,    // vertigo simulation   (4 + 20 + 1 + 20 = 45 seconds)
+  slideSeconds: 9, // how long each explanation slide stays in the headset
+  intensity: 1.0   // 0.5 = gentler, 1 = normal, 1.5 = stronger
+};
+
+/* Explanation slides shown INSIDE the headset after the 45 seconds. */
+const SLIDES = [
+  { title: "😵 That first part was DIZZINESS", color: "var(--dizzy)", points: [
+    "A vague feeling of being lightheaded, faint, woozy or unsteady.",
+    "The world does NOT spin — vision blurs, sways or greys out.",
+    "Often caused by low blood pressure, dehydration, low blood sugar, heat or anxiety."
+  ]},
+  { title: "🌀 The second part was VERTIGO", color: "var(--vertigo)", points: [
+    "A false sense that you or the room is SPINNING.",
+    "Usually comes from the inner ear's balance organ (vestibular system) — e.g. BPPV, Ménière's disease.",
+    "The jerky side-to-side flicking you saw is called nystagmus."
+  ]},
+  { title: "✅ What to do next", color: "var(--accent)", points: [
+    "Sit or lie down straight away. Keep still and look at one fixed point.",
+    "Drink water, eat something, stand up slowly. Don't drive.",
+    "See a doctor if it keeps happening.",
+    "Emergency if it comes with slurred speech, weakness, severe headache, double vision or chest pain."
+  ]}
+];
+/* ================================================================= */
+
+const $ = (s, el = document) => el.querySelector(s);
+const menu = $("#menu"), stage = $("#stage"), summary = $("#summary");
+const eyeL = $("#eyeL");
+const eyeR = eyeL.cloneNode(true);       // make the right eye
+eyeR.id = "eyeR";
+stage.appendChild(eyeR);
+const eyes = [eyeL, eyeR];
+
+let stream = null, running = false, rafId = 0, t0 = 0, wakeLock = null;
+let spinAngle = 0, lastT = 0;
+
+const PH = (() => {                       // phase start/end times
+  const a = SETTINGS.normal, b = a + SETTINGS.dizzy, c = b + SETTINGS.pause, d = c + SETTINGS.vertigo;
+  return { dizzyStart: a, dizzyEnd: b, vertStart: c, vertEnd: d, slidesEnd: d + SLIDES.length * SETTINGS.slideSeconds };
+})();
+
+/* ---------- camera ---------- */
+async function startCamera() {
+  if (stream) return true;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false
+    });
+    eyes.forEach(e => { const v = $("video", e); v.srcObject = stream; v.play().catch(() => {}); });
+    stage.classList.remove("no-camera");
+    return true;
+  } catch (err) {
+    console.warn("Camera not available, using backup scene.", err);
+    stage.classList.add("no-camera");
+    return false;
+  }
+}
+
+/* ---------- helpers ---------- */
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const ramp = (t, start, len) => clamp((t - start) / len);          // 0 → 1
+const smooth = x => x * x * (3 - 2 * x);
+
+function setAll(sel, fn) { eyes.forEach(e => fn($(sel, e))); }
+function caption(html) { setAll(".caption", c => { if (c.innerHTML !== html) c.innerHTML = html; c.style.opacity = html ? 1 : 0; }); }
+
+/* ---------- the animation, called ~60 times per second ---------- */
+function frame(now) {
+  if (!running) return;
+  const t = (now - t0) / 1000;
+  const dt = Math.min(0.1, Math.max(0, t - lastT));
+  lastT = t;
+  const k = SETTINGS.intensity;
+
+  let rot = 0, tx = 0, ty = 0, scale = 1, blur = 0, bright = 1, sat = 1, vign = 0.25, fade = 0;
+  let cap = "", timer = "";
+
+  if (t < PH.dizzyStart) {
+    cap = "<b>NORMAL VISION</b><span class='t'>Look around the room. Get ready…</span>";
+    timer = `Starting in ${Math.ceil(PH.dizzyStart - t)}`;
+  }
+  else if (t < PH.dizzyEnd) {
+    // ---- DIZZINESS: lightheaded, swaying, blurring, greying out — but NO spinning ----
+    const p = t - PH.dizzyStart;
+    const s = smooth(ramp(t, PH.dizzyStart, 5)) * smooth(1 - ramp(t, PH.dizzyEnd - 2, 2)) * k;
+    tx = Math.sin(p * 0.9) * 3 * s + Math.sin(p * 2.3) * 0.8 * s;      // slow wobble (percent)
+    ty = Math.sin(p * 0.7 + 1) * 2 * s;
+    rot = Math.sin(p * 0.6) * 2.5 * s;                                  // tiny tilt, not a spin
+    scale = 1 + 0.04 * Math.sin(p * 1.1) * s;
+    blur = (2 + 2.5 * (0.5 + 0.5 * Math.sin(p * 1.4))) * s;             // vision goes in & out of focus
+    const wave = Math.pow(0.5 + 0.5 * Math.sin(p * 0.8 - 1.5), 3);     // "head rush" waves
+    bright = 1 - 0.45 * wave * s;
+    sat = 1 - 0.7 * s;
+    vign = 0.25 + 0.6 * wave * s;                                       // tunnel vision
+    fade = 0.35 * wave * s;
+    cap = "<b style='color:var(--dizzy)'>DIZZINESS</b><span class='t'>Lightheaded · faint · unsteady</span>";
+    timer = `${Math.ceil(PH.dizzyEnd - t)} s`;
+  }
+  else if (t < PH.vertStart) {
+    cap = ""; timer = "";
+  }
+  else if (t < PH.vertEnd) {
+    // ---- VERTIGO: the world spins + nystagmus (eyes jerk side to side) ----
+    const p = t - PH.vertStart;
+    const s = smooth(ramp(t, PH.vertStart, 4)) * smooth(1 - ramp(t, PH.vertEnd - 2.5, 2.5)) * k;
+    // the room spins faster and faster (up to ~70 degrees per second), then slows down
+    spinAngle += 70 * s * Math.min(1, k) * dt;
+    rot = spinAngle + Math.sin(p * 0.5) * 10 * s;
+    // nystagmus: slow drift one way, then a fast flick back (saw-tooth), ~3 beats per second
+    const beat = (p * 3) % 1;
+    const saw = beat < 0.8 ? beat / 0.8 : 1 - (beat - 0.8) / 0.2;
+    tx = (saw - 0.5) * 7 * s;
+    ty = Math.sin(p * 1.3) * 1.5 * s;
+    scale = 1.05;
+    blur = 0.8 * s;
+    vign = 0.35;
+    cap = "<b style='color:var(--vertigo)'>VERTIGO</b><span class='t'>The room seems to spin</span>";
+    timer = `${Math.ceil(PH.vertEnd - t)} s`;
+  }
+  else if (t < PH.slidesEnd) {
+    showSlides(t - PH.vertEnd);
+    rafId = requestAnimationFrame(frame);
+    return;
+  }
+  else { finish(); return; }
+
+  // make sure spin ends "level" smoothly during fade-out of vertigo
+  if (t >= PH.vertStart && t < PH.vertEnd) {
+    const out = smooth(ramp(t, PH.vertEnd - 2.5, 2.5));
+    rot = rot * (1 - out) + (Math.ceil(rot / 360) * 360) * out;
+  }
+
+  const transform = `translate(${tx}%, ${ty}%) rotate(${rot}deg) scale(${scale})`;
+  const filter = `blur(${blur.toFixed(2)}px) brightness(${bright.toFixed(3)}) saturate(${sat.toFixed(3)})`;
+  eyes.forEach(e => {
+    const sc = $(".scene", e);
+    sc.style.transform = transform;
+    sc.style.filter = filter;
+    $(".vignette", e).style.opacity = vign.toFixed(3);
+    $(".fade", e).style.opacity = fade.toFixed(3);
+    const tm = $(".timer", e);
+    if (tm.textContent !== timer) tm.textContent = timer;
+    tm.style.display = timer ? "" : "none";
+  });
+  caption(cap);
+
+  rafId = requestAnimationFrame(frame);
+}
+
+let lastSlide = -1;
+function showSlides(st) {
+  const i = Math.min(SLIDES.length - 1, Math.floor(st / SETTINGS.slideSeconds));
+  const frac = (st % SETTINGS.slideSeconds) / SETTINGS.slideSeconds;
+  if (i !== lastSlide) {
+    lastSlide = i;
+    const s = SLIDES[i];
+    const html = `<h2 style="color:${s.color}">${s.title}</h2><ul>${s.points.map(p => `<li>${p}</li>`).join("")}</ul>
+                  <div class="progress"><div></div></div>`;
+    eyes.forEach(e => {
+      $(".info", e).classList.add("on");
+      $(".info .card", e).innerHTML = html;
+      $(".timer", e).style.display = "none";
+    });
+    caption("");
+  }
+  setAll(".info .progress div", d => d.style.width = (frac * 100).toFixed(1) + "%");
+}
+
+/* ---------- start / stop ---------- */
+async function start() {
+  const mode = document.querySelector("input[name=mode]:checked").value;
+  stage.className = "on " + mode;
+  menu.style.display = "none";
+  summary.classList.remove("on");
+
+  // fullscreen + landscape + keep screen awake (all optional, ignore errors)
+  try { await document.documentElement.requestFullscreen?.(); } catch (e) {}
+  try { if (mode === "split") await screen.orientation?.lock?.("landscape"); } catch (e) {}
+  try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (e) {}
+
+  await startCamera();
+  reset();
+  running = true;
+  t0 = performance.now();
+  rafId = requestAnimationFrame(frame);
+}
+
+function reset() {
+  lastSlide = -1; spinAngle = 0; lastT = 0;
+  eyes.forEach(e => {
+    $(".info", e).classList.remove("on");
+    $(".scene", e).style.transform = "";
+    $(".scene", e).style.filter = "";
+    $(".fade", e).style.opacity = 0;
+  });
+}
+
+function stopRun() {
+  running = false;
+  cancelAnimationFrame(rafId);
+  reset();
+}
+
+function finish() {
+  stopRun();
+  stage.className = "";
+  summary.classList.add("on");
+  summary.scrollTop = 0;
+  try { screen.orientation?.unlock?.(); } catch (e) {}
+}
+
+function toMenu() {
+  stopRun();
+  stage.className = "";
+  summary.classList.remove("on");
+  menu.style.display = "";
+  try { wakeLock?.release(); } catch (e) {}
+  try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+}
+
+$("#startBtn").addEventListener("click", start);
+$("#againBtn").addEventListener("click", start);
+$("#menuBtn").addEventListener("click", toMenu);
+// Safety: tapping the screen during the experience stops it and shows the explanation.
+stage.addEventListener("click", () => { if (running) finish(); });
+// Re-acquire the screen wake lock if the page comes back into view
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible" && running) {
+    try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (e) {}
+  }
+});
+</script>
+</body>
+</html>
