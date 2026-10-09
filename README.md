@@ -38,7 +38,7 @@ GitHub can host the app as a website for free. This is called **GitHub Pages**.
 ## Step 2: Open it on the phone
 
 1. Open the link above in **Chrome** (Android) or **Safari** (iPhone).
-2. Tip: use the browser menu → **Add to Home screen** so it opens like an app.
+2. Recommended: use the Chrome menu (⋮) → **Add to Home screen** (or **Install app**), then always open it from that home-screen icon. It then runs **full screen** with no browser bars.
 3. Choose **Headset mode**, then tap **Start experience**.
 4. When asked to use the camera, tap **Allow**.
 5. Turn the phone sideways and place it in the VR viewer.
@@ -71,6 +71,7 @@ Only change the text inside quotes or between tags. Keep the commas, quotes and 
 | A grid pattern shows instead of the camera | Camera permission was blocked. Tap the 🔒 lock icon next to the web address → Permissions → Camera → Allow, then reload. The page must be opened through the `https://` link, not as a downloaded file. |
 | The screen goes to sleep | Turn off auto-lock/screen timeout in the phone settings. |
 | The picture isn't split in two | On the start screen, choose **Headset mode**. |
+| Not full screen | Open the app from its home-screen icon (see Step 2). In the browser, if a "Tap anywhere to begin" screen appears, tap it — that puts it back into full screen after the camera question. |
 | It feels too strong | Set `intensity` to `0.5` in `SETTINGS`. |
 
 ---
