@@ -178,6 +178,7 @@
       </label>
     </div>
 
+    <div class="warning" id="camMsg" style="display:none"></div>
     <button class="big" id="startBtn">▶ Start experience</button>
     <p class="fine">The browser will ask to use your camera — tap <b>Allow</b>. Nothing is recorded or uploaded; the video stays on this device.</p>
   </div>
@@ -300,21 +301,51 @@ const PH = (() => {                       // phase start/end times
 })();
 
 /* ---------- camera ---------- */
+let cameraProblem = "", allowNoCamera = false;
 async function startCamera() {
   if (stream) return true;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false
-    });
+  cameraProblem = "";
+  if (!window.isSecureContext) {
+    cameraProblem = "This page must be opened from its https:// link, not as a downloaded file.";
+  } else if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    cameraProblem = "This browser can't use the camera. Open the link in Chrome (Android) or Safari (iPhone), not inside another app.";
+  } else {
+    // Try the back camera first, then any camera at all.
+    const tries = [
+      { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+      { video: { facingMode: "environment" }, audio: false },
+      { video: true, audio: false }
+    ];
+    for (const c of tries) {
+      try { stream = await navigator.mediaDevices.getUserMedia(c); break; }
+      catch (err) {
+        console.warn("Camera attempt failed:", err);
+        const n = err && err.name;
+        if (n === "NotAllowedError" || n === "SecurityError") {
+          cameraProblem = "Camera permission was blocked. Tap the icon left of the web address → Permissions → Camera → Allow, then reload the page.";
+          break;
+        }
+        if (n === "NotReadableError" || n === "AbortError") {
+          cameraProblem = "Another app is using the camera. Close other camera apps and tabs, then reload.";
+        } else if (n === "NotFoundError") {
+          cameraProblem = "No camera was found on this device.";
+        } else {
+          cameraProblem = "Camera error: " + (n || err);
+        }
+      }
+    }
+  }
+  if (stream) {
     eyes.forEach(e => { const v = $("video", e); v.srcObject = stream; v.play().catch(() => {}); });
     stage.classList.remove("no-camera");
+    $("#camMsg").style.display = "none";
     return true;
-  } catch (err) {
-    console.warn("Camera not available, using backup scene.", err);
-    stage.classList.add("no-camera");
-    return false;
   }
+  stage.classList.add("no-camera");
+  const m = $("#camMsg");
+  m.textContent = "⚠ The camera isn't working. " + cameraProblem + " (You can still start with a practice pattern instead.)";
+  m.style.display = "block";
+  return false;
 }
 
 /* ---------- helpers ---------- */
@@ -439,7 +470,15 @@ async function start() {
   try { if (mode === "split") await screen.orientation?.lock?.("landscape"); } catch (e) {}
   try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (e) {}
 
-  await startCamera();
+  const camOk = await startCamera();
+  if (!camOk && !allowNoCamera) {
+    // Go back to the menu and explain the problem instead of starting.
+    allowNoCamera = true;
+    $("#startBtn").textContent = "▶ Start anyway (practice pattern, no camera)";
+    toMenu();
+    menu.scrollTop = 0;
+    return;
+  }
   reset();
   running = true;
   t0 = performance.now();
