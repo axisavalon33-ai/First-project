@@ -107,6 +107,24 @@
     padding: 4px 10px; border-radius: 20px;
   }
 
+  /* title poster and "get ready" countdown screens */
+  .cover {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: #000;
+  }
+  .cover.on { display: flex; }
+  .cover .poster { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
+  .cover.title .poster { display: block; }
+  .cover .count {
+    display: none; flex-direction: column; align-items: center; text-align: center;
+    background: radial-gradient(circle at 50% 45%, #13213a 0%, #02040a 75%);
+    width: 100%; height: 100%; justify-content: center;
+  }
+  .cover.counting .count { display: flex; }
+  .count b { font-size: clamp(22px, 6vw, 56px); letter-spacing: 0.06em; }
+  .count .num { font-size: clamp(60px, 18vw, 170px); font-weight: 800; line-height: 1.1; }
+  .count span { color: var(--muted); font-size: clamp(11px, 2.2vw, 20px); }
+
   /* explanation slides inside the headset */
   .info {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
@@ -158,7 +176,7 @@
 <section id="menu">
   <div class="wrap">
     <h1><span class="v">Vertigo</span> vs <span class="d">Dizziness</span></h1>
-    <p class="lead">A 45-second VR experience. You'll see the room around you through the phone camera — first as it feels to be <b>dizzy</b>, then as it feels to have <b>vertigo</b>. Afterwards you'll learn the difference and what to do.</p>
+    <p class="lead">A 30-second VR experience. You'll see the room around you through the phone camera — first as it feels to be <b>dizzy</b>, then as it feels to have <b>vertigo</b>. Afterwards you'll learn the difference and what to do.</p>
 
     <div class="warning">
       <strong>⚠ Before you start</strong><br>
@@ -196,6 +214,8 @@
     <div class="fade"></div>
     <div class="timer"></div>
     <div class="caption"></div>
+    <div class="cover"><img class="poster" src="poster.jpg" alt="MEDSCOPE II · Medicolegal II · Neurology">
+      <div class="count"><b></b><div class="num"></div><span></span></div></div>
     <div class="info"><div class="card"></div></div>
   </div>
 </section>
@@ -255,15 +275,15 @@
    Times are in seconds.
    ================================================================= */
 const SETTINGS = {
-  normal:    4,    // calm "this is normal vision" moment
-  dizzy:    20,    // dizziness simulation
-  pause:     1,    // short break between the two
-  vertigo:  20,    // vertigo simulation   (4 + 20 + 1 + 20 = 45 seconds)
+  title:     3,    // MEDSCOPE poster at the start
+  countdown: 3,    // "3, 2, 1" screen before each part
+  dizzy:    12,    // dizziness simulation
+  vertigo:  12,    // vertigo simulation   (3 + 3 + 12 + 3 + 12 = 33 seconds)
   slideSeconds: 9, // how long each explanation slide stays in the headset
   intensity: 1.0   // 0.5 = gentler, 1 = normal, 1.5 = stronger
 };
 
-/* Explanation slides shown INSIDE the headset after the 45 seconds. */
+/* Explanation slides shown INSIDE the headset after the experience. */
 const SLIDES = [
   { title: "😵 That first part was DIZZINESS", color: "var(--dizzy)", points: [
     "A vague feeling of being lightheaded, faint, woozy or unsteady.",
@@ -296,8 +316,10 @@ let stream = null, running = false, rafId = 0, t0 = 0, wakeLock = null;
 let spinAngle = 0, lastT = 0;
 
 const PH = (() => {                       // phase start/end times
-  const a = SETTINGS.normal, b = a + SETTINGS.dizzy, c = b + SETTINGS.pause, d = c + SETTINGS.vertigo;
-  return { dizzyStart: a, dizzyEnd: b, vertStart: c, vertEnd: d, slidesEnd: d + SLIDES.length * SETTINGS.slideSeconds };
+  const a = SETTINGS.title + SETTINGS.countdown, b = a + SETTINGS.dizzy;
+  const c = b + SETTINGS.countdown, d = c + SETTINGS.vertigo;
+  return { titleEnd: SETTINGS.title, dizzyStart: a, dizzyEnd: b, vertStart: c, vertEnd: d,
+           slidesEnd: d + SLIDES.length * SETTINGS.slideSeconds };
 })();
 
 /* ---------- camera ---------- */
@@ -367,14 +389,16 @@ function frame(now) {
   let rot = 0, tx = 0, ty = 0, scale = 1, blur = 0, bright = 1, sat = 1, vign = 0.25, fade = 0;
   let cap = "", timer = "";
 
-  if (t < PH.dizzyStart) {
-    cap = "<b>NORMAL VISION</b><span class='t'>Look around the room. Get ready…</span>";
-    timer = `Starting in ${Math.ceil(PH.dizzyStart - t)}`;
+  if (t < PH.titleEnd) {
+    showCover("title");
+  }
+  else if (t < PH.dizzyStart) {
+    showCover("counting", "DIZZINESS", "var(--dizzy)", Math.ceil(PH.dizzyStart - t), "Lightheaded · faint · unsteady");
   }
   else if (t < PH.dizzyEnd) {
     // ---- DIZZINESS: lightheaded, swaying, blurring, greying out — but NO spinning ----
     const p = t - PH.dizzyStart;
-    const s = smooth(ramp(t, PH.dizzyStart, 5)) * smooth(1 - ramp(t, PH.dizzyEnd - 2, 2)) * k;
+    const s = smooth(ramp(t, PH.dizzyStart, 3)) * smooth(1 - ramp(t, PH.dizzyEnd - 1.5, 1.5)) * k;
     tx = Math.sin(p * 0.9) * 3 * s + Math.sin(p * 2.3) * 0.8 * s;      // slow wobble (percent)
     ty = Math.sin(p * 0.7 + 1) * 2 * s;
     rot = Math.sin(p * 0.6) * 2.5 * s;                                  // tiny tilt, not a spin
@@ -389,12 +413,12 @@ function frame(now) {
     timer = `${Math.ceil(PH.dizzyEnd - t)} s`;
   }
   else if (t < PH.vertStart) {
-    cap = ""; timer = "";
+    showCover("counting", "VERTIGO", "var(--vertigo)", Math.ceil(PH.vertStart - t), "The room seems to spin");
   }
   else if (t < PH.vertEnd) {
     // ---- VERTIGO: the world spins + nystagmus (eyes jerk side to side) ----
     const p = t - PH.vertStart;
-    const s = smooth(ramp(t, PH.vertStart, 4)) * smooth(1 - ramp(t, PH.vertEnd - 2.5, 2.5)) * k;
+    const s = smooth(ramp(t, PH.vertStart, 3)) * smooth(1 - ramp(t, PH.vertEnd - 2, 2)) * k;
     // the room spins faster and faster (up to ~70 degrees per second), then slows down
     spinAngle += 70 * s * Math.min(1, k) * dt;
     rot = spinAngle + Math.sin(p * 0.5) * 10 * s;
@@ -418,9 +442,12 @@ function frame(now) {
 
   // make sure spin ends "level" smoothly during fade-out of vertigo
   if (t >= PH.vertStart && t < PH.vertEnd) {
-    const out = smooth(ramp(t, PH.vertEnd - 2.5, 2.5));
+    const out = smooth(ramp(t, PH.vertEnd - 2, 2));
     rot = rot * (1 - out) + (Math.ceil(rot / 360) * 360) * out;
   }
+
+  if ((t >= PH.dizzyStart && t < PH.dizzyEnd) || (t >= PH.vertStart && t < PH.vertEnd)) showCover("");
+  else { cap = ""; timer = ""; }
 
   const transform = `translate(${tx}%, ${ty}%) rotate(${rot}deg) scale(${scale})`;
   const filter = `blur(${blur.toFixed(2)}px) brightness(${bright.toFixed(3)}) saturate(${sat.toFixed(3)})`;
@@ -437,6 +464,23 @@ function frame(now) {
   caption(cap);
 
   rafId = requestAnimationFrame(frame);
+}
+
+let lastCover = "";
+function showCover(kind, label, color, num, sub) {
+  const key = kind + "|" + (label || "") + "|" + (num || "");
+  if (key === lastCover) return;
+  lastCover = key;
+  eyes.forEach(e => {
+    const c = $(".cover", e);
+    c.className = "cover" + (kind ? " on " + kind : "");
+    if (kind === "counting") {
+      $(".count b", e).textContent = label;
+      $(".count b", e).style.color = color;
+      $(".count .num", e).textContent = num;
+      $(".count span", e).textContent = sub;
+    }
+  });
 }
 
 let lastSlide = -1;
@@ -487,6 +531,7 @@ async function start() {
 
 function reset() {
   lastSlide = -1; spinAngle = 0; lastT = 0;
+  showCover("");
   eyes.forEach(e => {
     $(".info", e).classList.remove("on");
     $(".scene", e).style.transform = "";

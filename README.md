@@ -1,14 +1,15 @@
 # Vertigo vs Dizziness — VR exhibition app
 
-A 45-second VR experience for a neuroscience exhibition. The phone camera shows the real room, and the app changes that live video to show how each condition feels:
+A 30-second VR experience for a neuroscience exhibition (MEDSCOPE II · Medicolegal II · Neurology). The phone camera shows the real room, and the app changes that live video to show how each condition feels:
 
 | Time | What the visitor sees |
 |---|---|
-| 0–4 s | Normal vision, plus a countdown |
-| 4–24 s | **Dizziness**: vision blurs, sways, loses colour and "greys out" (lightheaded, faint) |
-| 24–25 s | Short pause |
-| 25–45 s | **Vertigo**: the room spins and the view jerks side to side (nystagmus) |
-| 45–72 s | Three explanation slides inside the headset (dizziness, vertigo, what to do next) |
+| 0–3 s | Title poster (`poster.jpg`) |
+| 3–6 s | "DIZZINESS" countdown: 3, 2, 1 |
+| 6–18 s | **Dizziness**: vision blurs, sways, loses colour and "greys out" (lightheaded, faint) |
+| 18–21 s | "VERTIGO" countdown: 3, 2, 1 |
+| 21–33 s | **Vertigo**: the room spins and the view jerks side to side (nystagmus) |
+| 33–60 s | Three explanation slides inside the headset (dizziness, vertigo, what to do next) |
 | End | A full summary page to read after taking the headset off |
 
 Tapping the screen at any time stops the experience and goes straight to the explanation.
@@ -58,8 +59,9 @@ To test it on a laptop without a headset, choose **Screen mode**.
 
 Everything is in one file, `index.html`. To edit it on GitHub, open the file, click the ✏️ pencil icon, make your change, then click **Commit changes**. The website updates within about a minute.
 
-- **Timing or strength**: near the bottom of the file, find `SETTINGS`. Change the numbers. For example, `intensity: 0.5` gives a gentler experience.
+- **Timing or strength**: near the bottom of the file, find `SETTINGS`. Change the numbers (`title`, `countdown`, `dizzy`, `vertigo` are seconds). For example, `intensity: 0.5` gives a gentler experience.
 - **Slide text in the headset**: find `SLIDES` just below `SETTINGS` and edit the sentences between the quotes `"..."`.
+- **Title poster**: upload a new picture named exactly `poster.jpg` to replace it.
 - **Summary page text**: search for `What to do next` and edit the plain sentences around it.
 
 Only change the text inside quotes or between tags. Keep the commas, quotes and brackets in place.
