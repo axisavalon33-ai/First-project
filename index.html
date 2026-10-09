@@ -125,24 +125,6 @@
   .count .num { font-size: clamp(60px, 18vw, 170px); font-weight: 800; line-height: 1.1; }
   .count span { color: var(--muted); font-size: clamp(11px, 2.2vw, 20px); }
 
-  /* explanation slides inside the headset */
-  .info {
-    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
-    background: radial-gradient(circle at 50% 40%, #13213a 0%, #02040a 75%);
-    padding: 12% 12%;
-  }
-  .info.on { display: flex; }
-  .info .card { width: 100%; max-width: 560px; }
-  .info h2 { font-size: clamp(15px, 3.2vw, 30px); margin-bottom: 0.5em; }
-  .info ul { list-style: none; }
-  .info li {
-    font-size: clamp(11px, 2.1vw, 19px); line-height: 1.35; margin-bottom: 0.45em;
-    padding-left: 1.1em; position: relative;
-  }
-  .info li::before { content: "•"; position: absolute; left: 0; color: var(--accent); }
-  .info .progress { height: 4px; background: #2d3748; border-radius: 2px; margin-top: 1em; overflow: hidden; }
-  .info .progress div { height: 100%; width: 0; background: var(--accent); }
-
   /* ---------- Final readable summary (outside headset) ---------- */
   #summary {
     position: fixed; inset: 0; display: none; overflow-y: auto; padding: 24px 16px 40px;
@@ -176,7 +158,7 @@
 <section id="menu">
   <div class="wrap">
     <h1><span class="v">Vertigo</span> vs <span class="d">Dizziness</span></h1>
-    <p class="lead">A 30-second VR experience. You'll see the room around you through the phone camera — first as it feels to be <b>dizzy</b>, then as it feels to have <b>vertigo</b>. Afterwards you'll learn the difference and what to do.</p>
+    <p class="lead">A 40-second VR experience. You'll see the room around you through the phone camera — first as it feels to be <b>dizzy</b>, then as it feels to have <b>vertigo</b>. Afterwards you'll learn the difference and what to do.</p>
 
     <div class="warning">
       <strong>⚠ Before you start</strong><br>
@@ -216,7 +198,6 @@
     <div class="caption"></div>
     <div class="cover"><img class="poster" src="poster.jpg" alt="MEDSCOPE II · Medicolegal II · Neurology">
       <div class="count"><b></b><div class="num"></div><span></span></div></div>
-    <div class="info"><div class="card"></div></div>
   </div>
 </section>
 
@@ -277,31 +258,11 @@
 const SETTINGS = {
   title:     3,    // MEDSCOPE poster at the start
   countdown: 3,    // "3, 2, 1" screen before each part
-  dizzy:    12,    // dizziness simulation
-  vertigo:  12,    // vertigo simulation   (3 + 3 + 12 + 3 + 12 = 33 seconds)
-  slideSeconds: 9, // how long each explanation slide stays in the headset
+  dizzy:    15,    // dizziness simulation
+  vertigo:  15,    // vertigo simulation   (3 + 3 + 15 + 3 + 15 = 39 seconds)
   intensity: 1.0   // 0.5 = gentler, 1 = normal, 1.5 = stronger
 };
 
-/* Explanation slides shown INSIDE the headset after the experience. */
-const SLIDES = [
-  { title: "😵 That first part was DIZZINESS", color: "var(--dizzy)", points: [
-    "A vague feeling of being lightheaded, faint, woozy or unsteady.",
-    "The world does NOT spin — vision blurs, sways or greys out.",
-    "Often caused by low blood pressure, dehydration, low blood sugar, heat or anxiety."
-  ]},
-  { title: "🌀 The second part was VERTIGO", color: "var(--vertigo)", points: [
-    "A false sense that you or the room is SPINNING.",
-    "Usually comes from the inner ear's balance organ (vestibular system) — e.g. BPPV, Ménière's disease.",
-    "The jerky side-to-side flicking you saw is called nystagmus."
-  ]},
-  { title: "✅ What to do next", color: "var(--accent)", points: [
-    "Sit or lie down straight away. Keep still and look at one fixed point.",
-    "Drink water, eat something, stand up slowly. Don't drive.",
-    "See a doctor if it keeps happening.",
-    "Emergency if it comes with slurred speech, weakness, severe headache, double vision or chest pain."
-  ]}
-];
 /* ================================================================= */
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -318,8 +279,7 @@ let spinAngle = 0, lastT = 0;
 const PH = (() => {                       // phase start/end times
   const a = SETTINGS.title + SETTINGS.countdown, b = a + SETTINGS.dizzy;
   const c = b + SETTINGS.countdown, d = c + SETTINGS.vertigo;
-  return { titleEnd: SETTINGS.title, dizzyStart: a, dizzyEnd: b, vertStart: c, vertEnd: d,
-           slidesEnd: d + SLIDES.length * SETTINGS.slideSeconds };
+  return { titleEnd: SETTINGS.title, dizzyStart: a, dizzyEnd: b, vertStart: c, vertEnd: d };
 })();
 
 /* ---------- camera ---------- */
@@ -433,11 +393,6 @@ function frame(now) {
     cap = "<b style='color:var(--vertigo)'>VERTIGO</b><span class='t'>The room seems to spin</span>";
     timer = `${Math.ceil(PH.vertEnd - t)} s`;
   }
-  else if (t < PH.slidesEnd) {
-    showSlides(t - PH.vertEnd);
-    rafId = requestAnimationFrame(frame);
-    return;
-  }
   else { finish(); return; }
 
   // make sure spin ends "level" smoothly during fade-out of vertigo
@@ -483,25 +438,6 @@ function showCover(kind, label, color, num, sub) {
   });
 }
 
-let lastSlide = -1;
-function showSlides(st) {
-  const i = Math.min(SLIDES.length - 1, Math.floor(st / SETTINGS.slideSeconds));
-  const frac = (st % SETTINGS.slideSeconds) / SETTINGS.slideSeconds;
-  if (i !== lastSlide) {
-    lastSlide = i;
-    const s = SLIDES[i];
-    const html = `<h2 style="color:${s.color}">${s.title}</h2><ul>${s.points.map(p => `<li>${p}</li>`).join("")}</ul>
-                  <div class="progress"><div></div></div>`;
-    eyes.forEach(e => {
-      $(".info", e).classList.add("on");
-      $(".info .card", e).innerHTML = html;
-      $(".timer", e).style.display = "none";
-    });
-    caption("");
-  }
-  setAll(".info .progress div", d => d.style.width = (frac * 100).toFixed(1) + "%");
-}
-
 /* ---------- start / stop ---------- */
 async function start() {
   const mode = document.querySelector("input[name=mode]:checked").value;
@@ -530,10 +466,9 @@ async function start() {
 }
 
 function reset() {
-  lastSlide = -1; spinAngle = 0; lastT = 0;
+  spinAngle = 0; lastT = 0;
   showCover("");
   eyes.forEach(e => {
-    $(".info", e).classList.remove("on");
     $(".scene", e).style.transform = "";
     $(".scene", e).style.filter = "";
     $(".fade", e).style.opacity = 0;
