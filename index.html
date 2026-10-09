@@ -106,8 +106,8 @@
   .caption .t { color: var(--muted); font-size: 0.8em; margin-top: 4px; }
   .timer {
     position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
-    font-size: clamp(11px, 2vw, 18px); color: var(--muted); background: rgba(0,0,0,0.5);
-    padding: 4px 10px; border-radius: 20px;
+    font-size: 10px; color: rgba(255,255,255,0.55); background: rgba(0,0,0,0.3);
+    padding: 1px 6px; border-radius: 10px;
   }
 
   /* title poster and "get ready" countdown screens */
@@ -381,8 +381,7 @@ function frame(now) {
     sat = 1 - 0.7 * s;
     vign = 0.25 + 0.6 * wave * s;                                       // tunnel vision
     fade = 0.35 * wave * s;
-    cap = "<b style='color:var(--dizzy)'>DIZZINESS</b><span class='t'>Lightheaded · faint · unsteady</span>";
-    timer = `${Math.ceil(PH.dizzyEnd - t)} s`;
+    timer = `${Math.ceil(PH.dizzyEnd - t)}s`;
   }
   else if (t < PH.vertStart) {
     showCover("counting", "VERTIGO", "var(--vertigo)", Math.ceil(PH.vertStart - t), "The room seems to spin");
@@ -402,8 +401,7 @@ function frame(now) {
     scale = 1.05;
     blur = 0.8 * s;
     vign = 0.35;
-    cap = "<b style='color:var(--vertigo)'>VERTIGO</b><span class='t'>The room seems to spin</span>";
-    timer = `${Math.ceil(PH.vertEnd - t)} s`;
+    timer = `${Math.ceil(PH.vertEnd - t)}s`;
   }
   else { finish(); return; }
 
